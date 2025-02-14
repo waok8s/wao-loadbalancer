@@ -61,7 +61,10 @@ import (
 const (
 	// Our nftables table. All of our chains/sets/maps are created inside this table,
 	// so they don't need any "kube-" or "kube-proxy-" prefix of their own.
-	kubeProxyTable = "kube-proxy"
+	// kubeProxyTable = "kube-proxy"
+
+	// WAO
+	kubeProxyTable = NFTableNameWAOLB
 
 	// base chains
 	filterPreroutingChain     = "filter-prerouting"
@@ -190,8 +193,9 @@ type Proxier struct {
 	// which proxier is operating on, can be directly consumed by knftables.
 	serviceCIDRs string
 
+	// waoLB is the WAO Load Balancer
 	// WAO
-	wao *Wao
+	waoLB *WAOLB
 }
 
 // Proxier implements proxy.Provider
@@ -214,9 +218,6 @@ func NewProxier(ipFamily v1.IPFamily,
 	nodePortAddressStrings []string,
 	initOnly bool,
 ) (*Proxier, error) {
-
-	// WAO
-	klog.V(2).InfoS("WAO-LoadBalancer: NewProxier")
 
 	nodePortAddresses := proxyutil.NewNodePortAddresses(ipFamily, nodePortAddressStrings, nodeIP)
 
@@ -270,7 +271,13 @@ func NewProxier(ipFamily v1.IPFamily,
 	proxier.syncRunner = async.NewBoundedFrequencyRunner("sync-runner", proxier.syncProxyRules, minSyncPeriod, syncPeriod, burstSyncs)
 
 	// WAO
-	proxier.wao = NewWao()
+	klog.V(2).InfoS("WAO: NewProxier", "ipFamily", ipFamily)
+	waoLB, err := NewWAOLB(proxier.ipFamily)
+	if err != nil {
+		klog.ErrorS(err, "Failed to initialize WAO Load Balancer")
+		return nil, err
+	}
+	proxier.waoLB = waoLB
 
 	return proxier, nil
 }
@@ -999,9 +1006,6 @@ func (proxier *Proxier) syncProxyRules() {
 		klog.V(2).InfoS("SyncProxyRules complete", "elapsed", time.Since(start))
 	}()
 
-	// WAO
-	proxier.wao.collectNodeAndPodList()
-
 	serviceUpdateResult := proxier.svcPortMap.Update(proxier.serviceChanges)
 	endpointUpdateResult := proxier.endpointsMap.Update(proxier.endpointsChanges)
 
@@ -1042,6 +1046,11 @@ func (proxier *Proxier) syncProxyRules() {
 			}
 		}
 	}
+
+	// WAO
+	// collect information
+	proxier.waoLB.CollectNodeAndPodList()
+	proxier.waoLB.CalcNodesScore()
 
 	// Now start the actual syncing transaction
 	tx := proxier.nftables.NewTransaction()
@@ -1090,9 +1099,6 @@ func (proxier *Proxier) syncProxyRules() {
 	// metric.
 	serviceNoLocalEndpointsTotalInternal := 0
 	serviceNoLocalEndpointsTotalExternal := 0
-
-	// WAO
-	proxier.wao.calcNodesScore()
 
 	// Build rules for each service-port.
 	for svcName, svc := range proxier.svcPortMap {
@@ -1686,6 +1692,29 @@ func (proxier *Proxier) writeServiceToEndpointRules(tx *knftables.Transaction, s
 		}
 	}
 
+	// // Now write loadbalancing rule
+	// var elements []string
+	// for i, ep := range endpoints {
+	// 	epInfo, ok := ep.(*endpointInfo)
+	// 	if !ok {
+	// 		continue
+	// 	}
+
+	// 	elements = append(elements,
+	// 		strconv.Itoa(i), ":", "goto", epInfo.chainName,
+	// 	)
+	// 	if i != len(endpoints)-1 {
+	// 		elements = append(elements, ",")
+	// 	}
+	// }
+	// tx.Add(&knftables.Rule{
+	// 	Chain: svcChain,
+	// 	Rule: knftables.Concat(
+	// 		"numgen random mod", len(endpoints), "vmap",
+	// 		"{", elements, "}",
+	// 	),
+	// })
+
 	// WAO
 	var clusterIps []string
 	for _, ep := range endpoints {
@@ -1695,11 +1724,11 @@ func (proxier *Proxier) writeServiceToEndpointRules(tx *knftables.Transaction, s
 		}
 		clusterIps = append(clusterIps, epInfo.IP())
 	}
-	modRanges := proxier.wao.calcModRanges(clusterIps)
+	modRanges := proxier.waoLB.CalcModRanges(clusterIps)
+	var num int
 
 	// Now write loadbalancing rule
 	var elements []string
-	var num int // WAO
 	for i, ep := range endpoints {
 		epInfo, ok := ep.(*endpointInfo)
 		if !ok {
