@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This repository has been merged into [waok8s/waok8s](https://github.com/waok8s/waok8s) (v1.31+). All new development is there. Older versions remain here for reference only, but this repository is no longer maintained.
+
 # WAO Load Balancer Version 2
 
 A kube-proxy with energy-aware load balancing feature.
@@ -237,6 +240,8 @@ Here is a non-comprehensive list of the variables and their implementation statu
 
 Versioning: we use the same major.minor as Kubernetes, and the patch is our own.
 
+- 2025-03-03 `v1.30.2`
+  - Enable feature gate `NFTablesProxyMode` by default.
 - 2025-03-03 `v1.30.1`
   - Bump dependencies.
 - 2025-02-26 `v1.30.0`
