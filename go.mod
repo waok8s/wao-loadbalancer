@@ -3,7 +3,7 @@ module github.com/waok8s/wao-loadbalancer
 go 1.23.0
 
 require (
-	github.com/waok8s/wao-core v1.30.1
+	github.com/waok8s/wao-core v1.30.2
 	k8s.io/metrics v0.30.0
 	sigs.k8s.io/controller-runtime v0.18.2
 	sigs.k8s.io/knftables v0.0.14

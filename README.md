@@ -237,6 +237,8 @@ Here is a non-comprehensive list of the variables and their implementation statu
 
 Versioning: we use the same major.minor as Kubernetes, and the patch is our own.
 
+- 2025-03-03 `v1.30.1`
+  - Bump dependencies.
 - 2025-02-26 `v1.30.0`
   - Release version.
 - 2025-02-20 `v1.30.0-alpha.2`
