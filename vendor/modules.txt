@@ -343,7 +343,7 @@ github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.4
 ## explicit; go 1.17
 github.com/vishvananda/netns
-# github.com/waok8s/wao-core v1.30.1
+# github.com/waok8s/wao-core v1.30.2
 ## explicit; go 1.22.2
 github.com/waok8s/wao-core/api/wao/v1beta1
 github.com/waok8s/wao-core/pkg/client
